@@ -1,0 +1,7 @@
+* text=auto
+Makefile text eol=lf
+*.pbix binary
+*.png binary
+*.gif binary
+*.pdf binary
+*.xlsx binary

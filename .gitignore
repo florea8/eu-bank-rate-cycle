@@ -1,0 +1,22 @@
+# Secrets and local config
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Data and logs
+data/raw/
+logs/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# Power BI
+powerbi/**/.pbi/cache.abf
+powerbi/**/localSettings.json
