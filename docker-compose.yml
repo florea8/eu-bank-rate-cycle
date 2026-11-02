@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16.4
+    container_name: bankcycle-db
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-bankcycle}
+      POSTGRES_USER: ${PGUSER:-bankcycle}
+      POSTGRES_PASSWORD: ${PGPASSWORD:?Set PGPASSWORD in .env}
+    ports:
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:
