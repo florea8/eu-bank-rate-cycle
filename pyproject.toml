@@ -14,8 +14,14 @@ dependencies = [
     "psycopg[binary]>=3.2,<4",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
 [project.scripts]
 bankcycle = "bankcycle.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
