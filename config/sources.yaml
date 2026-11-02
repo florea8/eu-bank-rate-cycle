@@ -1,0 +1,7 @@
+ecb:
+  base_url: https://data-api.ecb.europa.eu/service
+  series:
+    - id: dfr
+      flow: FM
+      key: D.U2.EUR.4F.KR.DFR.LEV
+      description: Deposit facility rate, daily, euro area

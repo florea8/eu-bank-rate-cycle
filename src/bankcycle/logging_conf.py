@@ -65,9 +65,13 @@ def log_step(logger: logging.Logger, step: str, **fields) -> Generator[dict]:
         )
         raise
     ms = round((time.perf_counter() - start) * 1000)
+    target = "/".join(str(fields[k]) for k in ("source", "file") if k in fields)
+    label = f"{step} {target}" if target else step
+    rows = f", {ctx['rows']} rows" if "rows" in ctx else ""
     logger.info(
-        "%s ok (%d ms)",
-        step,
+        "%s ok%s (%d ms)",
+        label,
+        rows,
         ms,
         extra={"step": step, "status": "ok", "duration_ms": ms, **fields, **ctx},
     )
