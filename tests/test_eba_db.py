@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from bankcycle.ingest import eba
+from bankcycle.ingest import eba, eba_metadata
 
 EXERCISE = 1999
 
@@ -44,3 +44,26 @@ def test_already_loaded_matches_checksum(pg_conn):
 
     assert eba.already_loaded(pg_conn, EXERCISE, "a" * 64)
     assert not eba.already_loaded(pg_conn, EXERCISE, "b" * 64)
+
+
+def _item(item: str, previous: dict) -> dict:
+    return {"csv_file": "tr_oth.csv", "template": "Capital", "item": item, "category": "Capital",
+            "label": "OWN FUNDS", "collection": None, "previous_items": previous}
+
+
+def test_replace_rows_stores_jsonb_and_replaces(pg_conn):
+    pg_conn.execute(eba_metadata.DDL)
+    table = eba_metadata.ITEMS
+    eba.replace_rows(pg_conn, table, EXERCISE, "a" * 64,
+                     [_item("1", {"Item_TR_1998": "981"}), _item("2", {})])
+
+    written = eba.replace_rows(pg_conn, table, EXERCISE, "b" * 64,
+                               [_item("1", {"Item_TR_1998": "982"})])
+
+    rows = pg_conn.execute(
+        "SELECT item, previous_items ->> 'Item_TR_1998' FROM raw.eba_items WHERE exercise = %s",
+        (EXERCISE,),
+    ).fetchall()
+    assert written == 1
+    assert rows == [("1", "982")]
+    assert eba.already_loaded(pg_conn, EXERCISE, "b" * 64, table)

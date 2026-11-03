@@ -7,9 +7,11 @@ from pathlib import Path
 import psycopg
 import requests
 import yaml
+from psycopg import sql
+from psycopg.types.json import Jsonb
 
 from bankcycle import db
-from bankcycle.ingest import http
+from bankcycle.ingest import eba_metadata, http
 from bankcycle.logging_conf import log_step
 from bankcycle.settings import REPO_ROOT, get_settings
 
@@ -69,6 +71,13 @@ COPY = (
     + ", ".join(TR_OTH_COLUMNS.values())
     + ", source_sha256) FROM STDIN"
 )
+
+TR_OTH = sql.Identifier("raw", "eba_tr_oth")
+FILE_TABLES = {
+    "tr_oth.csv": (TR_OTH,),
+    "SDD.xlsx": (eba_metadata.ITEMS,),
+    "TR_Metadata.xlsx": (eba_metadata.INSTITUTIONS, eba_metadata.DIMENSION_CODES),
+}
 
 
 @dataclass(frozen=True)
@@ -146,11 +155,11 @@ def parse_tr_oth(path: Path) -> list[tuple]:
         return [tuple(row.get(col) or None for col in TR_OTH_COLUMNS) for row in reader]
 
 
-def already_loaded(conn: psycopg.Connection, exercise: int, sha256: str) -> bool:
-    row = conn.execute(
-        "SELECT 1 FROM raw.eba_tr_oth WHERE exercise = %s AND source_sha256 = %s LIMIT 1",
-        (exercise, sha256),
-    ).fetchone()
+def already_loaded(
+    conn: psycopg.Connection, exercise: int, sha256: str, table: sql.Identifier = TR_OTH
+) -> bool:
+    query = sql.SQL("SELECT 1 FROM {} WHERE exercise = %s AND source_sha256 = %s LIMIT 1")
+    row = conn.execute(query.format(table), (exercise, sha256)).fetchone()
     return row is not None
 
 
@@ -165,6 +174,47 @@ def replace_exercise(
     return len(rows)
 
 
+def replace_rows(
+    conn: psycopg.Connection, table: sql.Identifier, exercise: int, sha256: str, rows: list[dict]
+) -> int:
+    """Like replace_exercise, for the small dictionary tables. Dict values are stored as jsonb."""
+    conn.execute(sql.SQL("DELETE FROM {} WHERE exercise = %s").format(table), (exercise,))
+    if not rows:
+        return 0
+    columns = ["exercise", *rows[0], "source_sha256"]
+    insert = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
+        table,
+        sql.SQL(", ").join(map(sql.Identifier, columns)),
+        sql.SQL(", ").join(sql.Placeholder() * len(columns)),
+    )
+    params = [
+        (exercise, *(Jsonb(v) if isinstance(v, dict) else v for v in row.values()), sha256)
+        for row in rows
+    ]
+    with conn.cursor() as cur:
+        cur.executemany(insert, params)
+    return len(rows)
+
+
+def load_file(conn: psycopg.Connection, file: EbaFile, path: Path) -> int:
+    """Load one downloaded file into its raw tables, unless this version is already there."""
+    sha256 = sha256_of(path)
+    if all(already_loaded(conn, file.exercise, sha256, t) for t in FILE_TABLES[file.name]):
+        log.info("eba/%s/%s: this file is already loaded", file.exercise, file.name)
+        return 0
+
+    if file.name == "tr_oth.csv":
+        return replace_exercise(conn, file.exercise, sha256, parse_tr_oth(path))
+    if file.name == "SDD.xlsx":
+        items = eba_metadata.parse_sdd(path)
+        return replace_rows(conn, eba_metadata.ITEMS, file.exercise, sha256, items)
+
+    institutions, codes = eba_metadata.parse_metadata(path)
+    return replace_rows(
+        conn, eba_metadata.INSTITUTIONS, file.exercise, sha256, institutions
+    ) + replace_rows(conn, eba_metadata.DIMENSION_CODES, file.exercise, sha256, codes)
+
+
 def run(force: bool = False) -> None:
     raw_dir = get_settings().data_dir / "raw"
     files = load_config()
@@ -175,16 +225,9 @@ def run(force: bool = False) -> None:
 
     with db.connect() as conn:
         conn.execute(DDL)
+        conn.execute(eba_metadata.DDL)
         conn.commit()
         for file in files:
-            if file.name != "tr_oth.csv":
-                continue
-            path = file.local_path(raw_dir)
-            sha256 = sha256_of(path)
             with log_step(log, "load", source="eba", file=f"{file.exercise}/{file.name}") as ctx:
-                if already_loaded(conn, file.exercise, sha256):
-                    log.info("eba/%s/%s: this file is already loaded", file.exercise, file.name)
-                    ctx["rows"] = 0
-                else:
-                    ctx["rows"] = replace_exercise(conn, file.exercise, sha256, parse_tr_oth(path))
+                ctx["rows"] = load_file(conn, file, file.local_path(raw_dir))
             conn.commit()
