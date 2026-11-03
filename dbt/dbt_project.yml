@@ -1,0 +1,15 @@
+name: bankcycle
+version: "0.1.0"
+config-version: 2
+profile: bankcycle
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  bankcycle:
+    staging:
+      +schema: staging
+      +materialized: view

@@ -16,6 +16,8 @@ dependencies = [
     "tenacity>=9.0,<10",
     "pyyaml>=6.0,<7",
     "openpyxl>=3.1,<4",
+    "dbt-core>=1.10,<2",
+    "dbt-postgres>=1.9,<2",
 ]
 
 [project.optional-dependencies]

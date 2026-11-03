@@ -1,0 +1,37 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Tables written by `bankcycle ingest`. Primary keys are enforced in PostgreSQL.
+    tables:
+      - name: ecb_observations
+        description: ECB series observations, one row per series and day.
+        columns:
+          - name: obs_value
+            data_tests:
+              - not_null
+
+      - name: eba_tr_oth
+        description: >
+          EBA Transparency Exercise values from tr_oth.csv, one row per bank, period, item and
+          breakdown. LEI XXXXXXXXXXXXXXXXXXXX is the aggregate of the banks on the
+          "Other banks" sheet, not a bank.
+        columns:
+          - name: exercise
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [2024, 2025]
+                    quote: false
+          - name: period
+            data_tests:
+              - not_null
+
+      - name: eba_items
+        description: Item dictionary from SDD.xlsx, with each item's codes in earlier exercises.
+
+      - name: eba_institutions
+        description: Banks in each exercise, from the "List of Institutions" sheet of TR_Metadata.xlsx.
+
+      - name: eba_dimension_codes
+        description: Labels for the breakdown codes used in tr_oth.csv, from TR_Metadata.xlsx.
