@@ -1,0 +1,64 @@
+version: 2
+
+models:
+  - name: stg_ecb__observations
+    description: ECB observations with a real date. One row per series and calendar day.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "series_key || '|' || observation_date"
+    columns:
+      - name: observation_date
+        data_tests:
+          - not_null
+
+  - name: stg_eba__tr_oth
+    description: >
+      EBA bank values with the period as a quarter-end date. P&L amounts are year to date,
+      over n_quarters quarters of the bank's financial year. is_aggregate marks the
+      "Other banks" total, which is not a bank.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: >
+              exercise || '|' || lei_code || '|' || period_end || '|' || item || '|' ||
+              assets_fv || '|' || assets_stages || '|' || exposure || '|' || financial_instruments
+    columns:
+      - name: period_end
+        data_tests:
+          - not_null
+      - name: n_quarters
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4]
+                quote: false
+
+  - name: stg_eba__items
+    description: EBA item dictionary, with each item's code in the exercise before.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "exercise || '|' || csv_file || '|' || template || '|' || item"
+
+  - name: stg_eba__institutions
+    description: Banks in each exercise, with the month their financial year ends.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "exercise || '|' || lei_code"
+    columns:
+      - name: fin_year_end_month
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [6, 12]
+                quote: false
+
+  - name: stg_eba__dimension_codes
+    description: Labels for the breakdown codes used in tr_oth.csv.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "exercise || '|' || dimension || '|' || code"
