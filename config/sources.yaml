@@ -5,3 +5,20 @@ ecb:
       flow: FM
       key: D.U2.EUR.4F.KR.DFR.LEV
       description: Deposit facility rate, daily, euro area
+
+# EBA folder IDs are not predictable, so each exercise URL is copied from its page on eba.europa.eu.
+# Checksums are pinned so a silent change to a published file fails the build.
+eba:
+  exercises:
+    - year: 2024
+      base_url: https://www.eba.europa.eu/assets/TE2024/Full_database/256109
+      files:
+        tr_oth.csv: e2c6d0b9ddb887f96ff0af7a51bbbd7d8e7b467a9e9e1110514660aecbcaa584
+        SDD.xlsx: 9f350211b2d54ae7a273526a0402ab43965822ff527dc2e587149c98bd13d6a9
+        TR_Metadata.xlsx: ecd488dffa578dabb89594ccc00409303b14446e7b0eaebab2bdaa7a65e7bc21
+    - year: 2025
+      base_url: https://www.eba.europa.eu/assets/TE2025/Full_database/883401
+      files:
+        tr_oth.csv: 1785417e172907b3a49623eb13e2cc6c7af26a02ae982bfe2ba3a70f782e4104
+        SDD.xlsx: 8b7fdf40bacb79d0bd51564c4cc157f68261a2290a209db18df9fa8eb6ee66cb
+        TR_Metadata.xlsx: 8110aea2ed614bc86cb5e00058787e8fe2b5e1ce816a5ec1f9346647668eb5df
