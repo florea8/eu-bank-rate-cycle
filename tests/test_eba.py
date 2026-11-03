@@ -93,3 +93,43 @@ def test_403_explains_manual_download(tmp_path, monkeypatch):
 def test_unpinned_file_is_kept_with_warning(tmp_path, fake_download, caplog):
     assert eba.fetch_file(_file(sha=None), tmp_path) is True
     assert SHA in caplog.text
+
+
+HEADER_2025 = [c for c in eba.TR_OTH_COLUMNS if c != "Footnote"]
+
+
+def _write_csv(path, header, rows):
+    lines = [",".join(f'"{c}"' for c in header)] + [",".join(f'"{v}"' for v in r) for r in rows]
+    path.write_text("\r\n".join(lines) + "\r\n", encoding="utf-8")
+    return path
+
+
+def test_parse_tr_oth_without_footnote(tmp_path):
+    row = ["LEI1", "DE", "202506", "2520101", "OWN FUNDS", "0", "0", "0", "0", "7054.23",
+           "0", "2", "7", "5", "Capital"]
+    path = _write_csv(tmp_path / "tr_oth.csv", HEADER_2025, [row])
+
+    (parsed,) = eba.parse_tr_oth(path)
+
+    assert len(parsed) == len(eba.TR_OTH_COLUMNS)
+    assert parsed[0] == "LEI1"
+    assert parsed[list(eba.TR_OTH_COLUMNS).index("Amount")] == "7054.23"
+    assert parsed[list(eba.TR_OTH_COLUMNS).index("Footnote")] is None
+
+
+def test_parse_tr_oth_empty_amount_is_null(tmp_path):
+    row = ["LEI1", "DE", "202506", "2520101", "OWN FUNDS", "0", "0", "0", "0", "",
+           "0", "2", "7", "5", "Capital"]
+    path = _write_csv(tmp_path / "tr_oth.csv", HEADER_2025, [row])
+
+    (parsed,) = eba.parse_tr_oth(path)
+
+    assert parsed[list(eba.TR_OTH_COLUMNS).index("Amount")] is None
+
+
+def test_parse_tr_oth_rejects_changed_header(tmp_path):
+    header = [c for c in HEADER_2025 if c != "Amount"] + ["Value"]
+    path = _write_csv(tmp_path / "tr_oth.csv", header, [])
+
+    with pytest.raises(ValueError, match=r"missing columns \['Amount'\], unexpected columns \['Value'\]"):
+        eba.parse_tr_oth(path)
