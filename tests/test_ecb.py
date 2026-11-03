@@ -35,9 +35,23 @@ def test_parse_empty_value_is_none():
 
 
 def test_save_raw_layout(tmp_path):
-    path = ecb.save_raw(b"abc", "dfr", tmp_path, date(2026, 11, 3))
-    assert path == tmp_path / "ecb" / "2026-11-03" / "dfr.csv"
+    path = ecb.save_raw(b"abc", "dfr", "2026-08", tmp_path, date(2026, 11, 3))
+    assert path == tmp_path / "ecb" / "2026-11-03" / "dfr_from_2026-08.csv"
     assert path.read_bytes() == b"abc"
+
+
+@pytest.mark.parametrize(
+    "latest, expected",
+    [
+        (None, "2019-01"),
+        ("2026-11-02", "2026-08"),
+        ("2025-06", "2025-03"),
+        ("2025-02-14", "2024-11"),
+        ("2025-03", "2024-12"),
+    ],
+)
+def test_incremental_start(latest, expected):
+    assert ecb.incremental_start(latest, default="2019-01") == expected
 
 
 def test_load_config_has_dfr():

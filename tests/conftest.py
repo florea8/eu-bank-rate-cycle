@@ -2,7 +2,20 @@ import logging
 
 import pytest
 
-from bankcycle import logging_conf, settings
+from bankcycle import db, logging_conf, settings
+
+
+@pytest.fixture
+def pg_conn():
+    """A real connection whose changes are rolled back after the test."""
+    if not db.is_up():
+        pytest.skip("PostgreSQL not reachable")
+    conn = db.connect()
+    try:
+        yield conn
+    finally:
+        conn.rollback()
+        conn.close()
 
 
 @pytest.fixture

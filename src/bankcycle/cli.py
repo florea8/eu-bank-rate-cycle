@@ -33,7 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("db-check", help="check that PostgreSQL answers")
     p.set_defaults(func=cmd_db_check)
 
-    p = sub.add_parser("ingest", help="download source data into data/raw")
+    p = sub.add_parser("ingest", help="download source data and load it into the raw schema")
     p.add_argument("sources", nargs="*", choices=INGEST_SOURCES, help="default: all")
     p.set_defaults(func=cmd_ingest)
 
