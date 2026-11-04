@@ -54,11 +54,11 @@ SDD_COLUMNS = {
     "CSV": "csv_file",
     "Template": "template",
     "Item": "item",
-    "Category": "category",
     "Label": "label",
 }
-SDD_OPTIONAL = {"Collection"}  # only from the 2025 exercise
-PREVIOUS_ITEM = re.compile(r"^Item_TR_\w+$")
+SDD_OPTIONAL = {"Category", "Collection"}  # Category from 2023, Collection from 2025
+SDD_ALIASES = {"DERIVED_TEMPLATE": "Template"}  # the 2022 and 2023 name
+PREVIOUS_ITEM = re.compile(r"^Item_\w+$")  # Item_TR_2024, and Item_ST_TR_16 in 2022
 
 INSTITUTION_COLUMNS = {
     "LEI_Code": "lei_code",
@@ -82,12 +82,20 @@ def _cell(value) -> str | None:
     return text if text.strip() else None
 
 
-def _read(ws: Worksheet, header_row: int) -> tuple[list[str], list[dict]]:
-    """Header and non-empty rows of a sheet whose header is on row header_row (0-based)."""
+def _read(
+    ws: Worksheet, key: str, aliases: dict[str, str] | None = None
+) -> tuple[list[str], list[dict]]:
+    """Header and non-empty rows of a sheet. The header is the first row with a `key` cell:
+    exercises put it on different rows and columns."""
+    aliases = aliases or {}
     rows = ws.iter_rows(values_only=True)
-    for _ in range(header_row):
-        next(rows)
-    header = [str(h).strip() if h is not None else "" for h in next(rows)]
+    for row in rows:
+        header = [str(h).strip() if h is not None else "" for h in row]
+        header = [aliases.get(h, h) for h in header]
+        if key in header:
+            break
+    else:
+        raise ValueError(f"sheet {ws.title!r} has no header row with a {key!r} column")
     records = []
     for row in rows:
         record = {h: _cell(v) for h, v in zip(header, row) if h}
@@ -117,7 +125,7 @@ def _check_header(
 def parse_sdd(path: Path) -> list[dict]:
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
-        header, records = _read(wb["SDD"], header_row=1)
+        header, records = _read(wb["SDD"], key="Item", aliases=SDD_ALIASES)
     finally:
         wb.close()
     _check_header(f"{path} [SDD]", header, set(SDD_COLUMNS), SDD_OPTIONAL, PREVIOUS_ITEM)
@@ -125,6 +133,7 @@ def parse_sdd(path: Path) -> list[dict]:
     return [
         {
             **{col: r[h] for h, col in SDD_COLUMNS.items()},
+            "category": r.get("Category"),
             "collection": r.get("Collection"),
             "previous_items": {h: v for h, v in r.items() if PREVIOUS_ITEM.match(h) and v},
         }
@@ -136,7 +145,7 @@ def parse_metadata(path: Path) -> tuple[list[dict], list[dict]]:
     """Institutions and dimension codes, read from one open workbook."""
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     try:
-        header, records = _read(wb["List of Institutions"], header_row=1)
+        header, records = _read(wb["List of Institutions"], key="LEI_Code")
         _check_header(
             f"{path} [List of Institutions]",
             header,
@@ -157,7 +166,7 @@ def parse_metadata(path: Path) -> tuple[list[dict], list[dict]]:
 
         codes = []
         for sheet in DIMENSION_SHEETS:
-            header, records = _read(wb[sheet], header_row=0)
+            header, records = _read(wb[sheet], key=sheet)
             _check_header(f"{path} [{sheet}]", header, {sheet, "Label"})
             codes += [{"dimension": sheet, "code": r[sheet], "label": r["Label"]} for r in records]
     finally:

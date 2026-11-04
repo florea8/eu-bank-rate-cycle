@@ -11,14 +11,15 @@ with bank_values as (
         v.exercise,
         k.item_key,
         k.item_label,
-        v.sheet,
+        -- the SDD template, because tr_oth.csv has no Sheet column before 2023
+        k.item_template as sheet,
         v.assets_fv,
         v.assets_stages,
         v.exposure,
         v.financial_instruments,
         v.amount,
         v.n_quarters,
-        v.sheet = 'P&L' as is_year_to_date
+        k.item_template = 'P&L' as is_year_to_date
     from {{ ref('stg_eba__tr_oth') }} as v
     inner join {{ ref('int_eba__item_keys') }} as k
         on k.exercise = v.exercise

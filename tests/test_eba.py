@@ -127,6 +127,20 @@ def test_parse_tr_oth_empty_amount_is_null(tmp_path):
     assert parsed[list(eba.TR_OTH_COLUMNS).index("Amount")] is None
 
 
+def test_parse_tr_oth_2022_layout(tmp_path):
+    header = [c for c in eba.TR_OTH_COLUMNS if c not in ("Footnote", "Row", "Column", "Sheet")]
+    header.append("footnote")
+    row = ["LEI1", "DE", "202206", "2220101", "OWN FUNDS", "0", "0", "0", "0", "7054.23",
+           "0", "2", "A note"]
+    path = _write_csv(tmp_path / "tr_oth.csv", header, [row])
+
+    (parsed,) = eba.parse_tr_oth(path)
+
+    columns = list(eba.TR_OTH_COLUMNS)
+    assert parsed[columns.index("Footnote")] == "A note"
+    assert parsed[columns.index("Sheet")] is None
+
+
 def test_parse_tr_oth_rejects_changed_header(tmp_path):
     header = [c for c in HEADER_2025 if c != "Amount"] + ["Value"]
     path = _write_csv(tmp_path / "tr_oth.csv", header, [])

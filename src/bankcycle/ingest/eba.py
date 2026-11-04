@@ -38,7 +38,9 @@ TR_OTH_COLUMNS = {
     "Column": "sheet_column",
     "Sheet": "sheet",
 }
-OPTIONAL_COLUMNS = {"Footnote"}  # only in the 2024 exercise
+# Footnote is missing in 2025; Row, Column and Sheet only exist from 2023.
+OPTIONAL_COLUMNS = {"Footnote", "Row", "Column", "Sheet"}
+HEADER_ALIASES = {"footnote": "Footnote"}  # the 2022 spelling
 
 DDL = """
 CREATE TABLE IF NOT EXISTS raw.eba_tr_oth (
@@ -145,7 +147,8 @@ def parse_tr_oth(path: Path) -> list[tuple]:
     """Rows in TR_OTH_COLUMNS order. Empty cells become NULL."""
     with path.open(encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
-        header = set(reader.fieldnames or [])
+        reader.fieldnames = [HEADER_ALIASES.get(h, h) for h in reader.fieldnames or []]
+        header = set(reader.fieldnames)
         missing = set(TR_OTH_COLUMNS) - OPTIONAL_COLUMNS - header
         unexpected = header - set(TR_OTH_COLUMNS)
         if missing or unexpected:

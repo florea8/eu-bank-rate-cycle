@@ -9,11 +9,12 @@ INSTITUTION_HEADER = ["Country", "Desc_country", "LEI_Code", "Name", "Finrep", "
                       "Footnotes", "TE_24", "LEI_Code_TE24"]
 
 
-def _sdd(path, header=SDD_HEADER, rows=()):
+def _sdd(path, header=SDD_HEADER, rows=(), title=True):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "SDD"
-    ws.append([None, None, None, None, "For reference, previous exercises' items"])
+    if title:
+        ws.append([None, None, None, None, "For reference, previous exercises' items"])
     ws.append(header)
     for row in rows:
         ws.append(row)
@@ -70,6 +71,18 @@ def test_parse_sdd_without_collection(tmp_path):
     assert item["item"] == "2420101"
 
 
+def test_parse_sdd_2022_layout(tmp_path):
+    header = ["CSV", "DERIVED_TEMPLATE", "Item", "Item_TR_2021", "Item_ST_TR_16", "Label"]
+    path = _sdd(tmp_path / "SDD.xlsx", header=header, title=False,
+                rows=[["tr_oth.csv", "Capital", 2220101, 2120101, 1690801, "OWN FUNDS"]])
+
+    (item,) = eba_metadata.parse_sdd(path)
+
+    assert item["template"] == "Capital"
+    assert item["category"] is None
+    assert item["previous_items"] == {"Item_TR_2021": "2120101", "Item_ST_TR_16": "1690801"}
+
+
 def test_parse_sdd_rejects_changed_header(tmp_path):
     header = [c if c != "Label" else "Description" for c in SDD_HEADER]
     path = _sdd(tmp_path / "SDD.xlsx", header=header)
@@ -100,6 +113,22 @@ def test_parse_metadata(tmp_path):
     assert institutions[1]["previous_exercises"] == {}
     assert {c["dimension"] for c in codes} == set(eba_metadata.DIMENSION_SHEETS)
     assert codes[0] == {"dimension": "ASSETS_FV", "code": "0", "label": "Total / No breakdown"}
+
+
+def test_parse_metadata_finds_offset_dimension_header(tmp_path):
+    path = _metadata(tmp_path / "TR_Metadata.xlsx")
+    wb = openpyxl.load_workbook(path)
+    del wb["Exposure"]
+    ws = wb.create_sheet("Exposure")
+    ws.append([None, None, None])
+    ws.append([None, None, "Exposure", "Label"])
+    ws.append([None, None, None, None])
+    ws.append([None, None, 101, "Central banks"])
+    wb.save(path)
+
+    _, codes = eba_metadata.parse_metadata(path)
+
+    assert {"dimension": "Exposure", "code": "101", "label": "Central banks"} in codes
 
 
 def test_parse_metadata_rejects_changed_header(tmp_path):

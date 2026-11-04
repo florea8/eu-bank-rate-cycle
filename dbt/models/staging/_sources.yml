@@ -21,7 +21,7 @@ sources:
             data_tests:
               - accepted_values:
                   arguments:
-                    values: [2024, 2025]
+                    values: [2022, 2023, 2024, 2025]
                     quote: false
           - name: period
             data_tests:
