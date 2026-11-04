@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: int_eba__item_keys
+    description: >
+      Maps each exercise's tr_oth item code to item_key, the code of the same item in the
+      latest exercise that has it.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "exercise || '|' || item"
+    columns:
+      - name: item_key
+        data_tests:
+          - not_null
+
+  - name: int_eba__bank_values
+    description: >
+      EBA values for real banks (the "Other banks" aggregate is dropped), with items matched
+      across exercises. For P&L rows, quarter_amount is the quarter's own amount; it is NULL
+      when the bank did not report the previous quarter of the same financial year.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: >
+              lei_code || '|' || period_end || '|' || item_key || '|' || assets_fv || '|' ||
+              assets_stages || '|' || exposure || '|' || financial_instruments
+    columns:
+      - name: bank_name
+        data_tests:
+          - not_null
+      - name: item_key
+        data_tests:
+          - not_null
