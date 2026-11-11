@@ -111,10 +111,10 @@ def test_parse_tr_oth_without_footnote(tmp_path):
 
     (parsed,) = eba.parse_tr_oth(path)
 
-    assert len(parsed) == len(eba.TR_OTH_COLUMNS)
-    assert parsed[0] == "LEI1"
-    assert parsed[list(eba.TR_OTH_COLUMNS).index("Amount")] == "7054.23"
-    assert parsed[list(eba.TR_OTH_COLUMNS).index("Footnote")] is None
+    assert list(parsed) == list(eba.TR_OTH_COLUMNS.values())
+    assert parsed["lei_code"] == "LEI1"
+    assert parsed["amount"] == "7054.23"
+    assert parsed["footnote"] is None
 
 
 def test_parse_tr_oth_empty_amount_is_null(tmp_path):
@@ -124,7 +124,7 @@ def test_parse_tr_oth_empty_amount_is_null(tmp_path):
 
     (parsed,) = eba.parse_tr_oth(path)
 
-    assert parsed[list(eba.TR_OTH_COLUMNS).index("Amount")] is None
+    assert parsed["amount"] is None
 
 
 def test_parse_tr_oth_2022_layout(tmp_path):
@@ -136,9 +136,8 @@ def test_parse_tr_oth_2022_layout(tmp_path):
 
     (parsed,) = eba.parse_tr_oth(path)
 
-    columns = list(eba.TR_OTH_COLUMNS)
-    assert parsed[columns.index("Footnote")] == "A note"
-    assert parsed[columns.index("Sheet")] is None
+    assert parsed["footnote"] == "A note"
+    assert parsed["sheet"] is None
 
 
 def test_parse_tr_oth_rejects_changed_header(tmp_path):

@@ -1,7 +1,9 @@
 import psycopg
 from psycopg.conninfo import make_conninfo
 
-from bankcycle.settings import get_settings
+from bankcycle.settings import REPO_ROOT, get_settings
+
+INIT_SQL = REPO_ROOT / "db" / "init.sql"
 
 
 def conninfo() -> str:
@@ -15,8 +17,13 @@ def conninfo() -> str:
     )
 
 
-def connect(autocommit: bool = False) -> psycopg.Connection:
-    return psycopg.connect(conninfo(), autocommit=autocommit)
+def connect() -> psycopg.Connection:
+    return psycopg.connect(conninfo())
+
+
+def init(conn: psycopg.Connection) -> None:
+    """Create the schemas and raw tables that don't exist yet."""
+    conn.execute(INIT_SQL.read_text(encoding="utf-8"))
 
 
 def is_up() -> bool:

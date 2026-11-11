@@ -24,10 +24,13 @@ INGEST_SOURCES = ["eba", "ecb"]
 
 def cmd_ingest(args: argparse.Namespace) -> None:
     sources = args.sources or INGEST_SOURCES
-    if "eba" in sources:
-        eba.run(force=args.force)
-    if "ecb" in sources:
-        ecb.run()
+    with db.connect() as conn:
+        db.init(conn)
+        conn.commit()
+        if "eba" in sources:
+            eba.run(conn, force=args.force)
+        if "ecb" in sources:
+            ecb.run(conn)
 
 
 def cmd_dbt(args: argparse.Namespace) -> None:
@@ -44,7 +47,8 @@ def cmd_dbt(args: argparse.Namespace) -> None:
 def cmd_analyze(args: argparse.Namespace) -> None:
     from bankcycle.analysis import sensitivity  # pandas and statsmodels are slow to import
 
-    sensitivity.run()
+    with db.connect() as conn:
+        sensitivity.run(conn)
 
 
 def build_parser() -> argparse.ArgumentParser:

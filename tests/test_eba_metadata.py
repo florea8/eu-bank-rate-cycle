@@ -39,14 +39,14 @@ def _metadata(path, institutions=(), header=INSTITUTION_HEADER):
     return path
 
 
-def test_parse_sdd_keeps_previous_codes(tmp_path):
+def test_parse_items_keeps_previous_codes(tmp_path):
     path = _sdd(tmp_path / "SDD.xlsx", rows=[
         ["tr_oth.csv", "Capital", "TR2025", 2520101, 2420101, 2320101, "Capital", "OWN FUNDS"],
         ["tr_oth.csv", "Capital", "TR2025", 2520154, None, None, "Capital", "NEW ITEM"],
         [None] * 8,
     ])
 
-    first, new = eba_metadata.parse_sdd(path)
+    first, new = eba_metadata.parse_items(path)
 
     assert first == {
         "csv_file": "tr_oth.csv",
@@ -60,44 +60,44 @@ def test_parse_sdd_keeps_previous_codes(tmp_path):
     assert new["previous_items"] == {}
 
 
-def test_parse_sdd_without_collection(tmp_path):
+def test_parse_items_without_collection(tmp_path):
     header = [c for c in SDD_HEADER if c != "Collection"]
     path = _sdd(tmp_path / "SDD.xlsx", header=header,
                 rows=[["tr_oth.csv", "Capital", 2420101, 2320101, 2220101, "Capital", "OWN FUNDS"]])
 
-    (item,) = eba_metadata.parse_sdd(path)
+    (item,) = eba_metadata.parse_items(path)
 
     assert item["collection"] is None
     assert item["item"] == "2420101"
 
 
-def test_parse_sdd_2022_layout(tmp_path):
+def test_parse_items_2022_layout(tmp_path):
     header = ["CSV", "DERIVED_TEMPLATE", "Item", "Item_TR_2021", "Item_ST_TR_16", "Label"]
     path = _sdd(tmp_path / "SDD.xlsx", header=header, title=False,
                 rows=[["tr_oth.csv", "Capital", 2220101, 2120101, 1690801, "OWN FUNDS"]])
 
-    (item,) = eba_metadata.parse_sdd(path)
+    (item,) = eba_metadata.parse_items(path)
 
     assert item["template"] == "Capital"
     assert item["category"] is None
     assert item["previous_items"] == {"Item_TR_2021": "2120101", "Item_ST_TR_16": "1690801"}
 
 
-def test_parse_sdd_rejects_changed_header(tmp_path):
+def test_parse_items_rejects_changed_header(tmp_path):
     header = [c if c != "Label" else "Description" for c in SDD_HEADER]
     path = _sdd(tmp_path / "SDD.xlsx", header=header)
 
     with pytest.raises(ValueError, match=r"missing columns \['Label'\], unexpected columns \['Description'\]"):
-        eba_metadata.parse_sdd(path)
+        eba_metadata.parse_items(path)
 
 
-def test_parse_metadata(tmp_path):
+def test_parse_institutions(tmp_path):
     path = _metadata(tmp_path / "TR_Metadata.xlsx", institutions=[
         ["AT", "Austria", "LEI1", "Bank One", "Yes - IFRS", "31-Dec", "", "1", "LEI1"],
         ["AT", "Austria", "LEI2", "Bank Two", "Yes - IFRS", "31-Dec", "A note", None, ""],
     ])
 
-    institutions, codes = eba_metadata.parse_metadata(path)
+    institutions = eba_metadata.parse_institutions(path)
 
     assert institutions[0] == {
         "lei_code": "LEI1",
@@ -111,11 +111,18 @@ def test_parse_metadata(tmp_path):
     }
     assert institutions[1]["footnotes"] == "A note"
     assert institutions[1]["previous_exercises"] == {}
+
+
+def test_parse_dimension_codes(tmp_path):
+    path = _metadata(tmp_path / "TR_Metadata.xlsx")
+
+    codes = eba_metadata.parse_dimension_codes(path)
+
     assert {c["dimension"] for c in codes} == set(eba_metadata.DIMENSION_SHEETS)
     assert codes[0] == {"dimension": "ASSETS_FV", "code": "0", "label": "Total / No breakdown"}
 
 
-def test_parse_metadata_finds_offset_dimension_header(tmp_path):
+def test_parse_dimension_codes_finds_offset_header(tmp_path):
     path = _metadata(tmp_path / "TR_Metadata.xlsx")
     wb = openpyxl.load_workbook(path)
     del wb["Exposure"]
@@ -126,14 +133,14 @@ def test_parse_metadata_finds_offset_dimension_header(tmp_path):
     ws.append([None, None, 101, "Central banks"])
     wb.save(path)
 
-    _, codes = eba_metadata.parse_metadata(path)
+    codes = eba_metadata.parse_dimension_codes(path)
 
     assert {"dimension": "Exposure", "code": "101", "label": "Central banks"} in codes
 
 
-def test_parse_metadata_rejects_changed_header(tmp_path):
+def test_parse_institutions_rejects_changed_header(tmp_path):
     header = [c for c in INSTITUTION_HEADER if c != "Name"]
     path = _metadata(tmp_path / "TR_Metadata.xlsx", header=header)
 
     with pytest.raises(ValueError, match=r"List of Institutions.*missing columns \['Name'\]"):
-        eba_metadata.parse_metadata(path)
+        eba_metadata.parse_institutions(path)

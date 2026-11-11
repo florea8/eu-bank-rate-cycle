@@ -9,7 +9,6 @@ import psycopg
 import statsmodels.formula.api as smf
 from statsmodels.tools.sm_exceptions import ValueWarning
 
-from bankcycle import db
 from bankcycle.logging_conf import log_step
 from bankcycle.settings import REPO_ROOT
 
@@ -101,10 +100,9 @@ def pooled_sensitivity(panel: pd.DataFrame):
     )
 
 
-def run(reports_dir: Path = REPORTS_DIR) -> None:
+def run(conn: psycopg.Connection, reports_dir: Path = REPORTS_DIR) -> None:
     reports_dir.mkdir(exist_ok=True)
-    with db.connect() as conn:
-        panel = add_phases(load_panel(conn))
+    panel = add_phases(load_panel(conn))
 
     with log_step(log, "analyze", file="bank_sensitivity.csv") as ctx:
         banks = bank_sensitivities(panel)

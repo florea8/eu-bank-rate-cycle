@@ -6,31 +6,15 @@ from datetime import date
 from pathlib import Path
 
 import psycopg
-import yaml
 
-from bankcycle import db
 from bankcycle.ingest import http
 from bankcycle.logging_conf import log_step
-from bankcycle.settings import REPO_ROOT, get_settings
+from bankcycle.settings import get_settings, load_sources
 
 log = logging.getLogger(__name__)
 
-SOURCES_FILE = REPO_ROOT / "config" / "sources.yaml"
 REQUIRED_COLUMNS = {"KEY", "TIME_PERIOD", "OBS_VALUE", "OBS_STATUS", "TITLE"}
 REVISION_OVERLAP_MONTHS = 3
-
-DDL = """
-CREATE TABLE IF NOT EXISTS raw.ecb_observations (
-    series_id   text NOT NULL,
-    series_key  text NOT NULL,
-    time_period text NOT NULL,
-    obs_value   double precision,
-    obs_status  text,
-    title       text,
-    loaded_at   timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (series_key, time_period)
-)
-"""
 
 UPSERT = """
 INSERT INTO raw.ecb_observations
@@ -59,8 +43,8 @@ class Series:
         return f"{self.flow}.{self.key}"
 
 
-def load_config(path: Path = SOURCES_FILE) -> tuple[str, list[Series]]:
-    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))["ecb"]
+def load_config() -> tuple[str, list[Series]]:
+    cfg = load_sources()["ecb"]
     series = [Series(id=s["id"], flow=s["flow"], key=s["key"]) for s in cfg["series"]]
     return cfg["base_url"], series
 
@@ -122,17 +106,14 @@ def upsert(conn: psycopg.Connection, series_id: str, rows: list[dict]) -> int:
         return cur.rowcount
 
 
-def run() -> None:
+def run(conn: psycopg.Connection) -> None:
     s = get_settings()
     base_url, series_list = load_config()
-    with db.connect() as conn:
-        conn.execute(DDL)
+    for series in series_list:
+        with log_step(log, "ingest", source="ecb", file=series.id) as ctx:
+            start = incremental_start(latest_period(conn, series.full_key), s.ecb_start_period)
+            log.info("ecb/%s: requesting from %s", series.id, start)
+            content = fetch(base_url, series, start)
+            save_raw(content, series.id, start, s.data_dir / "raw", date.today())
+            ctx["rows"] = upsert(conn, series.id, parse(content))
         conn.commit()
-        for series in series_list:
-            with log_step(log, "ingest", source="ecb", file=series.id) as ctx:
-                start = incremental_start(latest_period(conn, series.full_key), s.ecb_start_period)
-                log.info("ecb/%s: requesting from %s", series.id, start)
-                content = fetch(base_url, series, start)
-                save_raw(content, series.id, start, s.data_dir / "raw", date.today())
-                ctx["rows"] = upsert(conn, series.id, parse(content))
-            conn.commit()

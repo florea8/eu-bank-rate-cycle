@@ -3,13 +3,16 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+import yaml
 from dotenv import load_dotenv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SOURCES_FILE = REPO_ROOT / "config" / "sources.yaml"
 
 
-def _as_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes"}
+def load_sources() -> dict:
+    """What to download, per source, from config/sources.yaml."""
+    return yaml.safe_load(SOURCES_FILE.read_text(encoding="utf-8"))
 
 
 @dataclass(frozen=True)
@@ -21,7 +24,6 @@ class Settings:
     pguser: str
     pgpassword: str
     log_level: str
-    sample_mode: bool
     ecb_start_period: str
     http_timeout_s: int
 
@@ -42,7 +44,6 @@ def get_settings() -> Settings:
         pguser=os.getenv("PGUSER", "bankcycle"),
         pgpassword=os.getenv("PGPASSWORD", ""),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
-        sample_mode=_as_bool(os.getenv("SAMPLE_MODE", "false")),
         ecb_start_period=os.getenv("ECB_START_PERIOD", "2019-01"),
         http_timeout_s=int(os.getenv("HTTP_TIMEOUT_S", "60")),
     )

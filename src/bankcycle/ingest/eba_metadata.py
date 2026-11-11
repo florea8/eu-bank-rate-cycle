@@ -1,53 +1,10 @@
 """Parse the EBA dictionary: item codes (SDD.xlsx), banks and dimension codes (TR_Metadata.xlsx)."""
 import re
+from contextlib import closing
 from pathlib import Path
 
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
-from psycopg import sql
-
-ITEMS = sql.Identifier("raw", "eba_items")
-INSTITUTIONS = sql.Identifier("raw", "eba_institutions")
-DIMENSION_CODES = sql.Identifier("raw", "eba_dimension_codes")
-
-DDL = """
-CREATE TABLE IF NOT EXISTS raw.eba_items (
-    exercise       integer NOT NULL,
-    csv_file       text NOT NULL,
-    template       text NOT NULL,
-    item           text NOT NULL,
-    category       text,
-    label          text,
-    collection     text,
-    previous_items jsonb NOT NULL,
-    source_sha256  text NOT NULL,
-    loaded_at      timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (exercise, csv_file, template, item)
-);
-CREATE TABLE IF NOT EXISTS raw.eba_institutions (
-    exercise           integer NOT NULL,
-    lei_code           text NOT NULL,
-    country            text,
-    country_name       text,
-    name               text,
-    finrep             text,
-    fin_year_end       text,
-    footnotes          text,
-    previous_exercises jsonb NOT NULL,
-    source_sha256      text NOT NULL,
-    loaded_at          timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (exercise, lei_code)
-);
-CREATE TABLE IF NOT EXISTS raw.eba_dimension_codes (
-    exercise      integer NOT NULL,
-    dimension     text NOT NULL,
-    code          text NOT NULL,
-    label         text,
-    source_sha256 text NOT NULL,
-    loaded_at     timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (exercise, dimension, code)
-)
-"""
 
 # Sheet header -> raw column. Columns that change every year go into a jsonb column instead.
 SDD_COLUMNS = {
@@ -73,6 +30,10 @@ PREVIOUS_EXERCISE = re.compile(r"^(TE|TR|LEI_Code)_\w+$")
 
 # The breakdowns used in tr_oth.csv. The other sheets describe files we don't load.
 DIMENSION_SHEETS = ("ASSETS_FV", "ASSETS_Stages", "Exposure", "Financial_instruments", "Fin_end_year")
+
+
+def _open(path: Path):
+    return closing(openpyxl.load_workbook(path, read_only=True, data_only=True))
 
 
 def _cell(value) -> str | None:
@@ -122,12 +83,9 @@ def _check_header(
         )
 
 
-def parse_sdd(path: Path) -> list[dict]:
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    try:
+def parse_items(path: Path) -> list[dict]:
+    with _open(path) as wb:
         header, records = _read(wb["SDD"], key="Item", aliases=SDD_ALIASES)
-    finally:
-        wb.close()
     _check_header(f"{path} [SDD]", header, set(SDD_COLUMNS), SDD_OPTIONAL, PREVIOUS_ITEM)
 
     return [
@@ -141,34 +99,32 @@ def parse_sdd(path: Path) -> list[dict]:
     ]
 
 
-def parse_metadata(path: Path) -> tuple[list[dict], list[dict]]:
-    """Institutions and dimension codes, read from one open workbook."""
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    try:
+def parse_institutions(path: Path) -> list[dict]:
+    with _open(path) as wb:
         header, records = _read(wb["List of Institutions"], key="LEI_Code")
-        _check_header(
-            f"{path} [List of Institutions]",
-            header,
-            set(INSTITUTION_COLUMNS),
-            INSTITUTION_OPTIONAL,
-            PREVIOUS_EXERCISE,
-        )
-        institutions = [
-            {
-                **{col: r[h] for h, col in INSTITUTION_COLUMNS.items()},
-                "footnotes": r.get("Footnotes"),
-                "previous_exercises": {
-                    h: v for h, v in r.items() if PREVIOUS_EXERCISE.match(h) and v
-                },
-            }
-            for r in records
-        ]
+    _check_header(
+        f"{path} [List of Institutions]",
+        header,
+        set(INSTITUTION_COLUMNS),
+        INSTITUTION_OPTIONAL,
+        PREVIOUS_EXERCISE,
+    )
 
-        codes = []
+    return [
+        {
+            **{col: r[h] for h, col in INSTITUTION_COLUMNS.items()},
+            "footnotes": r.get("Footnotes"),
+            "previous_exercises": {h: v for h, v in r.items() if PREVIOUS_EXERCISE.match(h) and v},
+        }
+        for r in records
+    ]
+
+
+def parse_dimension_codes(path: Path) -> list[dict]:
+    codes = []
+    with _open(path) as wb:
         for sheet in DIMENSION_SHEETS:
             header, records = _read(wb[sheet], key=sheet)
             _check_header(f"{path} [{sheet}]", header, {sheet, "Label"})
             codes += [{"dimension": sheet, "code": r[sheet], "label": r["Label"]} for r in records]
-    finally:
-        wb.close()
-    return institutions, codes
+    return codes

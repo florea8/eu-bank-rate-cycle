@@ -22,7 +22,6 @@ def _values(conn) -> dict:
 
 
 def test_upsert_inserts_then_skips_unchanged(pg_conn):
-    pg_conn.execute(ecb.DDL)
     rows = [_row("2022-07-26", -0.5), _row("2022-07-27", 0.0)]
 
     assert ecb.upsert(pg_conn, "test", rows) == 2
@@ -31,7 +30,6 @@ def test_upsert_inserts_then_skips_unchanged(pg_conn):
 
 
 def test_upsert_applies_revisions(pg_conn):
-    pg_conn.execute(ecb.DDL)
     ecb.upsert(pg_conn, "test", [_row("2022-07-27", 0.0)])
 
     written = ecb.upsert(pg_conn, "test", [_row("2022-07-27", 0.25), _row("2022-07-28", 0.25)])
@@ -41,7 +39,6 @@ def test_upsert_applies_revisions(pg_conn):
 
 
 def test_latest_period(pg_conn):
-    pg_conn.execute(ecb.DDL)
     assert ecb.latest_period(pg_conn, KEY) is None
 
     ecb.upsert(pg_conn, "test", [_row("2025-06-30", 2.0), _row("2024-01-02", 4.0)])
