@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: fct_bank_quarter
+    description: >
+      One row per bank and quarter, in EUR million. Interest, income and profit cover the
+      quarter alone; balances are at quarter end. dfr_avg and dfr_end are the ECB deposit
+      facility rate (in %) averaged over the quarter and on its last day.
+      net_interest_margin is annualised (4 x quarter NII / total assets at quarter end).
+      in_balanced_panel marks banks with net interest income in every quarter from
+      panel_start, so totals over them compare the same banks over time.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: "lei_code || '|' || period_end"
+    columns:
+      - name: bank_name
+        data_tests:
+          - not_null
+      - name: dfr_avg
+        data_tests:
+          - not_null
+      - name: in_balanced_panel
+        data_tests:
+          - not_null

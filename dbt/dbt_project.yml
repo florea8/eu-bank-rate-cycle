@@ -16,3 +16,11 @@ models:
     intermediate:
       +schema: intermediate
       +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+vars:
+  # First quarter with a quarter-only P&L for most banks: September 2021 is only
+  # reported year to date, with no earlier quarter to subtract.
+  panel_start: "2021-12-31"
