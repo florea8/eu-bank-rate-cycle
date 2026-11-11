@@ -41,6 +41,12 @@ def cmd_dbt(args: argparse.Namespace) -> None:
             raise RuntimeError(f"dbt {' '.join(args.dbt_args)} failed")
 
 
+def cmd_analyze(args: argparse.Namespace) -> None:
+    from bankcycle.analysis import sensitivity  # pandas and statsmodels are slow to import
+
+    sensitivity.run()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bankcycle")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -56,6 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("dbt", help="run dbt with the settings from .env, e.g. `bankcycle dbt build`")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="passed to dbt unchanged")
     p.set_defaults(func=cmd_dbt)
+
+    p = sub.add_parser("analyze", help="estimate rate sensitivities and write them to reports/")
+    p.set_defaults(func=cmd_analyze)
 
     return parser
 

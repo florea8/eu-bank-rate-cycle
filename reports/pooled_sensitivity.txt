@@ -1,0 +1,6 @@
+nim_pct ~ rate_up + rate_down + bank fixed effects
+86 banks, 1291 bank-quarters, standard errors clustered by bank
+
+              Coef.  Std.Err.          z         P>|z|    [0.025   0.975]
+rate_up    0.154820  0.014005  11.054380  2.087746e-28  0.127370  0.18227
+rate_down  0.138089  0.020440   6.755858  1.419924e-11  0.098027  0.17815
