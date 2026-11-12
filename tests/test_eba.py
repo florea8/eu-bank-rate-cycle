@@ -140,6 +140,17 @@ def test_parse_tr_oth_2022_layout(tmp_path):
     assert parsed["sheet"] is None
 
 
+def test_parse_tr_oth_reads_windows_1252(tmp_path):
+    row = ["LEI1", "DE", "202106", "2121007", "Derivatives – Hedge accounting", "0", "0", "0",
+           "0", "1.5", "0", "2", "7", "5", "Assets"]
+    path = _write_csv(tmp_path / "tr_oth.csv", HEADER_2025, [row])
+    path.write_bytes(path.read_text(encoding="utf-8").encode("cp1252"))
+
+    (parsed,) = eba.parse_tr_oth(path)
+
+    assert parsed["label"] == "Derivatives – Hedge accounting"
+
+
 def test_parse_tr_oth_rejects_changed_header(tmp_path):
     header = [c for c in HEADER_2025 if c != "Amount"] + ["Value"]
     path = _write_csv(tmp_path / "tr_oth.csv", header, [])

@@ -25,6 +25,7 @@ INSTITUTION_COLUMNS = {
     "Finrep": "finrep",
     "Fin_year_end": "fin_year_end",
 }
+INSTITUTION_SHEETS = ("List of Institutions", "Banks list")  # the second is the 2021 name
 INSTITUTION_OPTIONAL = {"Footnotes"}  # only from the 2025 exercise
 PREVIOUS_EXERCISE = re.compile(r"^(TE|TR|LEI_Code)_\w+$")
 
@@ -101,9 +102,12 @@ def parse_items(path: Path) -> list[dict]:
 
 def parse_institutions(path: Path) -> list[dict]:
     with _open(path) as wb:
-        header, records = _read(wb["List of Institutions"], key="LEI_Code")
+        sheet = next((s for s in INSTITUTION_SHEETS if s in wb.sheetnames), None)
+        if sheet is None:
+            raise ValueError(f"{path}: no sheet named any of {INSTITUTION_SHEETS}")
+        header, records = _read(wb[sheet], key="LEI_Code")
     _check_header(
-        f"{path} [List of Institutions]",
+        f"{path} [{sheet}]",
         header,
         set(INSTITUTION_COLUMNS),
         INSTITUTION_OPTIONAL,

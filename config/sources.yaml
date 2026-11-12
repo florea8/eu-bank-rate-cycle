@@ -10,6 +10,12 @@ ecb:
 # Checksums are pinned so a silent change to a published file fails the build.
 eba:
   exercises:
+    - year: 2021
+      base_url: https://www.eba.europa.eu/assets/TE2021/Full_database
+      files:
+        tr_oth.csv: 610daa2c0bfe58d0aa12f834f800370b6bad749a07f6fab59a22d1048fb19f8e
+        SDD.xlsx: 7341155629b9d269e35422c07a13524a6c941c6b189ca952db52c92ea51b1753
+        TR_Metadata.xlsx: 8821d2f9c9cf318bc44156012ad7f844ffd5a78f259b97066347c4b8e40df88d
     - year: 2022
       base_url: https://www.eba.europa.eu/assets/TE2022/Full_database
       files:

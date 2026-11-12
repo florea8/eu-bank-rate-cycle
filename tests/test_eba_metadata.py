@@ -113,6 +113,19 @@ def test_parse_institutions(tmp_path):
     assert institutions[1]["previous_exercises"] == {}
 
 
+def test_parse_institutions_2021_sheet_name(tmp_path):
+    path = _metadata(tmp_path / "TR_Metadata.xlsx", institutions=[
+        ["AT", "Austria", "LEI1", "Bank One", "Yes - IFRS", "31/12", "", "Y", "LEI1"],
+    ])
+    wb = openpyxl.load_workbook(path)
+    wb["List of Institutions"].title = "Banks list"
+    wb.save(path)
+
+    (bank,) = eba_metadata.parse_institutions(path)
+
+    assert bank["name"] == "Bank One"
+
+
 def test_parse_dimension_codes(tmp_path):
     path = _metadata(tmp_path / "TR_Metadata.xlsx")
 

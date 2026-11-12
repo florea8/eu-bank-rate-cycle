@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import io
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,7 +37,7 @@ TR_OTH_COLUMNS = {
 }
 # Footnote is missing in 2025; Row, Column and Sheet only exist from 2023.
 OPTIONAL_COLUMNS = {"Footnote", "Row", "Column", "Sheet"}
-HEADER_ALIASES = {"footnote": "Footnote"}  # the 2022 spelling
+HEADER_ALIASES = {"footnote": "Footnote"}  # the 2021 and 2022 spelling
 
 
 @dataclass(frozen=True)
@@ -100,19 +101,27 @@ def fetch_file(file: EbaFile, raw_dir: Path, force: bool = False) -> bool:
     return True
 
 
+def read_text(path: Path) -> str:
+    """The 2021 file is saved as Windows-1252, the later ones as UTF-8."""
+    data = path.read_bytes()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("cp1252")
+
+
 def parse_tr_oth(path: Path) -> list[dict]:
     """One dict per row, keyed by raw column. Empty cells become NULL."""
-    with path.open(encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        reader.fieldnames = [HEADER_ALIASES.get(h, h) for h in reader.fieldnames or []]
-        header = set(reader.fieldnames)
-        missing = set(TR_OTH_COLUMNS) - OPTIONAL_COLUMNS - header
-        unexpected = header - set(TR_OTH_COLUMNS)
-        if missing or unexpected:
-            raise ValueError(
-                f"{path}: missing columns {sorted(missing)}, unexpected columns {sorted(unexpected)}"
-            )
-        return [{col: row.get(h) or None for h, col in TR_OTH_COLUMNS.items()} for row in reader]
+    reader = csv.DictReader(io.StringIO(read_text(path), newline=""))
+    reader.fieldnames = [HEADER_ALIASES.get(h, h) for h in reader.fieldnames or []]
+    header = set(reader.fieldnames)
+    missing = set(TR_OTH_COLUMNS) - OPTIONAL_COLUMNS - header
+    unexpected = header - set(TR_OTH_COLUMNS)
+    if missing or unexpected:
+        raise ValueError(
+            f"{path}: missing columns {sorted(missing)}, unexpected columns {sorted(unexpected)}"
+        )
+    return [{col: row.get(h) or None for h, col in TR_OTH_COLUMNS.items()} for row in reader]
 
 
 # Source file -> the raw tables it fills, each with the parser that returns its rows.
