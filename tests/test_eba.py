@@ -1,30 +1,12 @@
 import hashlib
 
 import pytest
-import requests
 
-from bankcycle.ingest import eba, http
+from bankcycle.ingest import eba
 
 CONTENT = b"LEI_Code,Period\nX,202506\n"
-SHA = hashlib.sha256(CONTENT).hexdigest()
-
-
-def _file(sha: str | None = SHA) -> eba.EbaFile:
-    return eba.EbaFile(exercise=2025, name="tr_oth.csv", url="https://example.test/tr_oth.csv",
-                       sha256=sha)
-
-
-@pytest.fixture
-def fake_download(monkeypatch):
-    calls: list[str] = []
-
-    def fake(url, dest, content=CONTENT):
-        calls.append(url)
-        dest.write_bytes(content)
-        return hashlib.sha256(content).hexdigest()
-
-    monkeypatch.setattr(http, "download", fake)
-    return calls
+FILE = eba.EbaFile(exercise=2025, name="tr_oth.csv", url="https://example.test/tr_oth.csv",
+                   sha256=hashlib.sha256(CONTENT).hexdigest())
 
 
 def test_load_config_builds_urls():
@@ -35,64 +17,31 @@ def test_load_config_builds_urls():
     for f in files:
         assert f.url.startswith("https://www.eba.europa.eu/assets/TE")
         assert f.url.endswith("/" + f.name)
-        assert f.sha256 is not None and len(f.sha256) == 64
+        assert len(f.sha256) == 64
 
 
 def test_local_path(tmp_path):
-    assert _file().local_path(tmp_path) == tmp_path / "eba" / "2025" / "tr_oth.csv"
+    assert FILE.local_path(tmp_path) == tmp_path / "eba" / "2025" / "tr_oth.csv"
 
 
-def test_downloads_when_missing(tmp_path, fake_download):
-    assert eba.fetch_file(_file(), tmp_path) is True
-    assert _file().local_path(tmp_path).read_bytes() == CONTENT
-    assert len(fake_download) == 1
+def test_verify_accepts_the_pinned_file(tmp_path):
+    path = tmp_path / "tr_oth.csv"
+    path.write_bytes(CONTENT)
+
+    eba.verify(FILE, path)
 
 
-def test_skips_when_checksum_matches(tmp_path, fake_download):
-    eba.fetch_file(_file(), tmp_path)
-    assert eba.fetch_file(_file(), tmp_path) is False
-    assert len(fake_download) == 1
+def test_verify_says_where_to_download_a_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError, match="Download it in a browser from https://example.test"):
+        eba.verify(FILE, tmp_path / "tr_oth.csv")
 
 
-def test_force_downloads_again(tmp_path, fake_download):
-    eba.fetch_file(_file(), tmp_path)
-    assert eba.fetch_file(_file(), tmp_path, force=True) is True
-    assert len(fake_download) == 2
+def test_verify_rejects_a_different_file(tmp_path):
+    path = tmp_path / "tr_oth.csv"
+    path.write_bytes(b"another exercise's file")
 
-
-def test_redownloads_corrupted_file(tmp_path, fake_download):
-    path = _file().local_path(tmp_path)
-    path.parent.mkdir(parents=True)
-    path.write_bytes(b"truncated")
-
-    assert eba.fetch_file(_file(), tmp_path) is True
-    assert path.read_bytes() == CONTENT
-
-
-def test_checksum_mismatch_fails_and_keeps_nothing(tmp_path, fake_download):
-    with pytest.raises(ValueError, match="checksum mismatch"):
-        eba.fetch_file(_file(sha="0" * 64), tmp_path)
-
-    folder = tmp_path / "eba" / "2025"
-    assert list(folder.iterdir()) == []
-
-
-def test_403_explains_manual_download(tmp_path, monkeypatch):
-    def refused(url, dest):
-        resp = requests.Response()
-        resp.status_code = 403
-        raise requests.HTTPError("HTTP 403", response=resp)
-
-    monkeypatch.setattr(http, "download", refused)
-
-    with pytest.raises(RuntimeError, match="Download it in a browser") as exc_info:
-        eba.fetch_file(_file(), tmp_path)
-    assert str(_file().local_path(tmp_path)) in str(exc_info.value)
-
-
-def test_unpinned_file_is_kept_with_warning(tmp_path, fake_download, caplog):
-    assert eba.fetch_file(_file(sha=None), tmp_path) is True
-    assert SHA in caplog.text
+    with pytest.raises(ValueError, match="is not the pinned file"):
+        eba.verify(FILE, path)
 
 
 HEADER_2025 = [c for c in eba.TR_OTH_COLUMNS if c != "Footnote"]

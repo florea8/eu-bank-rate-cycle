@@ -28,7 +28,7 @@ def cmd_ingest(args: argparse.Namespace) -> None:
         db.init(conn)
         conn.commit()
         if "eba" in sources:
-            eba.run(conn, force=args.force)
+            eba.run(conn)
         if "ecb" in sources:
             ecb.run(conn)
 
@@ -58,9 +58,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("db-check", help="check that PostgreSQL answers")
     p.set_defaults(func=cmd_db_check)
 
-    p = sub.add_parser("ingest", help="download source data and load it into the raw schema")
+    p = sub.add_parser("ingest", help="load the EBA files and the ECB rates into the raw schema")
     p.add_argument("sources", nargs="*", choices=INGEST_SOURCES, help="default: all")
-    p.add_argument("--force", action="store_true", help="re-download EBA files already on disk")
     p.set_defaults(func=cmd_ingest)
 
     p = sub.add_parser("dbt", help="run dbt with the settings from .env, e.g. `bankcycle dbt build`")

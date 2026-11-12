@@ -6,8 +6,9 @@ ecb:
       key: D.U2.EUR.4F.KR.DFR.LEV
       description: Deposit facility rate, daily, euro area
 
-# EBA folder IDs are not predictable, so each exercise URL is copied from its page on eba.europa.eu.
-# Checksums are pinned so a silent change to a published file fails the build.
+# EBA refuses scripted downloads: save each file in a browser as data/raw/eba/<year>/<name>.
+# The URLs are copied from each exercise's page on eba.europa.eu.
+# Checksums are pinned so a wrong or changed file fails the build.
 eba:
   exercises:
     - year: 2021

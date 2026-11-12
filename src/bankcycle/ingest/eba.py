@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import psycopg
-import requests
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
-from bankcycle.ingest import eba_metadata, http
+from bankcycle.ingest import eba_metadata
 from bankcycle.logging_conf import log_step
 from bankcycle.settings import get_settings, load_sources
 
@@ -45,7 +44,7 @@ class EbaFile:
     exercise: int
     name: str
     url: str
-    sha256: str | None
+    sha256: str
 
     def local_path(self, raw_dir: Path) -> Path:
         return raw_dir / "eba" / str(self.exercise) / self.name
@@ -58,7 +57,7 @@ def load_config() -> list[EbaFile]:
             exercise=ex["year"],
             name=name,
             url=f"{ex['base_url'].rstrip('/')}/{name}",
-            sha256=sha or None,
+            sha256=sha,
         )
         for ex in cfg["exercises"]
         for name, sha in ex["files"].items()
@@ -73,32 +72,17 @@ def sha256_of(path: Path) -> str:
     return digest.hexdigest()
 
 
-def fetch_file(file: EbaFile, raw_dir: Path, force: bool = False) -> bool:
-    """Download one file unless a verified copy exists. Returns True if it downloaded."""
-    path = file.local_path(raw_dir)
-    if not force and file.sha256 and path.exists() and sha256_of(path) == file.sha256:
-        return False
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    part = path.with_name(path.name + ".part")
-    try:
-        digest = http.download(file.url, part)
-    except requests.HTTPError as exc:
-        if exc.response is not None and exc.response.status_code == 403:
-            raise RuntimeError(
-                f"EBA refused the download (403). Download it in a browser from {file.url} "
-                f"and save it as {path}; the next run verifies its checksum and skips the download."
-            ) from exc
-        raise
-
-    if file.sha256 is None:
-        log.warning("%s has no pinned checksum; got %s", file.url, digest)
-    elif digest != file.sha256:
-        part.unlink()
-        raise ValueError(f"checksum mismatch for {file.url}: expected {file.sha256}, got {digest}")
-
-    part.replace(path)
-    return True
+def verify(file: EbaFile, path: Path) -> None:
+    """EBA refuses scripted downloads, so the files are saved by hand. Check that this one
+    is in place and is the pinned version."""
+    if not path.exists():
+        raise FileNotFoundError(f"{path} is missing. Download it in a browser from {file.url}")
+    digest = sha256_of(path)
+    if digest != file.sha256:
+        raise ValueError(
+            f"{path} is not the pinned file (SHA-256 {digest}, expected {file.sha256}). "
+            f"Download it again from {file.url}"
+        )
 
 
 def read_text(path: Path) -> str:
@@ -159,26 +143,21 @@ def replace_rows(
 
 
 def load_file(conn: psycopg.Connection, file: EbaFile, path: Path) -> int:
-    """Load one downloaded file into its raw tables, unless this version is already there."""
-    sha256 = sha256_of(path)
+    """Load one verified file into its raw tables, unless this version is already there."""
     written = 0
     for table, parse in LOADERS[file.name].items():
-        if not already_loaded(conn, table, file.exercise, sha256):
-            written += replace_rows(conn, table, file.exercise, sha256, parse(path))
+        if not already_loaded(conn, table, file.exercise, file.sha256):
+            written += replace_rows(conn, table, file.exercise, file.sha256, parse(path))
     if not written:
         log.info("eba/%s/%s: this file is already loaded", file.exercise, file.name)
     return written
 
 
-def run(conn: psycopg.Connection, force: bool = False) -> None:
+def run(conn: psycopg.Connection) -> None:
     raw_dir = get_settings().data_dir / "raw"
-    files = load_config()
-    for file in files:
-        with log_step(log, "ingest", source="eba", file=f"{file.exercise}/{file.name}"):
-            if not fetch_file(file, raw_dir, force=force):
-                log.info("eba/%s/%s: already downloaded, checksum matches", file.exercise, file.name)
-
-    for file in files:
+    for file in load_config():
+        path = file.local_path(raw_dir)
         with log_step(log, "load", source="eba", file=f"{file.exercise}/{file.name}") as ctx:
-            ctx["rows"] = load_file(conn, file, file.local_path(raw_dir))
+            verify(file, path)
+            ctx["rows"] = load_file(conn, file, path)
         conn.commit()
