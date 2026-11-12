@@ -6,7 +6,7 @@ models:
     data_tests:
       - unique:
           arguments:
-            column_name: "series_key || '|' || observation_date"
+            column_name: "series_id || '|' || observation_date"
     columns:
       - name: observation_date
         data_tests:
@@ -42,19 +42,11 @@ models:
             column_name: "exercise || '|' || csv_file || '|' || template || '|' || item"
 
   - name: stg_eba__institutions
-    description: Banks in each exercise, with the month their financial year ends.
+    description: Banks in each exercise, with the LEI each had in the exercise before.
     data_tests:
       - unique:
           arguments:
             column_name: "exercise || '|' || lei_code"
-    columns:
-      - name: fin_year_end_month
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [6, 12]
-                quote: false
 
   - name: stg_eba__dimension_codes
     description: Labels for the breakdown codes used in tr_oth.csv.

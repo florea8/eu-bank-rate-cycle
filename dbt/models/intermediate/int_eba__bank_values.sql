@@ -11,15 +11,16 @@ with bank_values as (
         v.exercise,
         k.item_key,
         k.item_label,
-        -- the SDD template, because tr_oth.csv has no Sheet column before 2023
-        k.item_template as sheet,
         v.assets_fv,
         v.assets_stages,
         v.exposure,
         v.financial_instruments,
         v.amount,
         v.n_quarters,
-        k.item_template = 'P&L' as is_year_to_date
+        k.item_template = 'P&L' as is_year_to_date,
+        -- first day of the bank's financial year that a year-to-date amount counts from
+        (v.period_end + 1 - make_interval(months => 3 * v.n_quarters))::date
+            as financial_year_start
     from {{ ref('stg_eba__tr_oth') }} as v
     inner join {{ ref('int_eba__item_keys') }} as k
         on k.exercise = v.exercise
@@ -31,20 +32,17 @@ with bank_values as (
 )
 
 select
-    cur.*,
+    *,
     case
-        when not cur.is_year_to_date then null
-        when cur.n_quarters = 1 then cur.amount
-        else cur.amount - prev.amount
+        when not is_year_to_date then null
+        when n_quarters = 1 then amount
+        when lag(n_quarters) over same_year = n_quarters - 1
+            then amount - lag(amount) over same_year
     end as quarter_amount
-from bank_values as cur
-left join bank_values as prev
-    on cur.is_year_to_date
-   and prev.lei_code = cur.lei_code
-   and prev.item_key = cur.item_key
-   and prev.assets_fv = cur.assets_fv
-   and prev.assets_stages = cur.assets_stages
-   and prev.exposure = cur.exposure
-   and prev.financial_instruments = cur.financial_instruments
-   and prev.n_quarters = cur.n_quarters - 1
-   and prev.period_end = (cur.period_end + interval '1 day' - interval '3 months' - interval '1 day')::date
+from bank_values
+window same_year as (
+    partition by
+        lei_code, item_key, assets_fv, assets_stages, exposure, financial_instruments,
+        financial_year_start
+    order by n_quarters
+)
