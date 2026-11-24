@@ -30,11 +30,15 @@ cp .env.example .env            # then set PGPASSWORD
 python -m venv .venv
 .venv/Scripts/pip install -e ".[dev]"
 bankcycle db-check
-bankcycle ingest                # ECB rates and EBA files, into the raw schema
-bankcycle dbt build             # staging, intermediate and marts.fct_bank_quarter, with tests
-bankcycle analyze               # writes reports/
+bankcycle run                   # the three steps below in one go
 pytest
 ```
+
+The steps of `bankcycle run`, which can also be run one by one:
+
+- `bankcycle ingest` loads the ECB rates and the EBA files into the raw schema.
+- `bankcycle dbt build` builds staging, intermediate and `marts.fct_bank_quarter`, and runs the data tests.
+- `bankcycle analyze` estimates the sensitivities and writes them to `reports/`.
 
 The EBA refuses scripted downloads, so its files are saved by hand into `data/raw/eba/<year>/`. `bankcycle ingest` prints the URL of any missing file and checks each one against its pinned checksum in [config/sources.yaml](config/sources.yaml).
 

@@ -61,3 +61,13 @@ def test_dbt_failure_returns_1(fake_dbt, tmp_log_file):
     outcome["success"] = False
 
     assert cli.main(["dbt", "test"]) == 1
+
+
+def test_run_calls_each_step_in_order(monkeypatch, tmp_log_file):
+    steps = []
+    monkeypatch.setattr(cli, "cmd_ingest", lambda a: steps.append(("ingest", a.sources)))
+    monkeypatch.setattr(cli, "cmd_dbt", lambda a: steps.append(("dbt", a.dbt_args)))
+    monkeypatch.setattr(cli, "cmd_analyze", lambda a: steps.append(("analyze", None)))
+
+    assert cli.main(["run"]) == 0
+    assert steps == [("ingest", []), ("dbt", ["build"]), ("analyze", None)]

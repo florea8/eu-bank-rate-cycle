@@ -51,6 +51,12 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         sensitivity.run(conn)
 
 
+def cmd_run(args: argparse.Namespace) -> None:
+    cmd_ingest(argparse.Namespace(sources=[]))
+    cmd_dbt(argparse.Namespace(dbt_args=["build"]))
+    cmd_analyze(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bankcycle")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -68,6 +74,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("analyze", help="estimate rate sensitivities and write them to reports/")
     p.set_defaults(func=cmd_analyze)
+
+    p = sub.add_parser("run", help="the whole pipeline: ingest, dbt build, analyze")
+    p.set_defaults(func=cmd_run)
 
     return parser
 
