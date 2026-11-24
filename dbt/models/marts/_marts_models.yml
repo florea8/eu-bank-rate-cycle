@@ -3,7 +3,7 @@ version: 2
 models:
   - name: fct_bank_quarter
     description: >
-      One row per bank and quarter, in EUR million. Interest, income and profit cover the
+      One row per bank and quarter from panel_start (Q4 2020), in EUR million. Interest, income and profit cover the
       quarter alone; balances are at quarter end. dfr_avg and dfr_end are the ECB deposit
       facility rate (in %) averaged over the quarter and on its last day.
       net_interest_margin is annualised (4 x quarter NII / total assets at quarter end).

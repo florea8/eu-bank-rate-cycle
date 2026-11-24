@@ -111,3 +111,5 @@ select
     coalesce(p.in_balanced_panel, false) as in_balanced_panel
 from bank_quarters as q
 left join panel as p on p.lei_code = q.lei_code
+-- earlier quarters have no quarter-only P&L, so their totals would look like a collapse
+where q.period_end >= '{{ var("panel_start") }}'
