@@ -1,4 +1,6 @@
-{{ config(materialized='table') }}
+-- analyze: fct_bank_quarter takes 20 s instead of 1 s if Postgres has no statistics
+-- on this freshly built table
+{{ config(materialized='table', post_hook='analyze {{ this }}') }}
 
 -- One row per bank, quarter, item and breakdown, with items matched across exercises.
 -- P&L amounts are reported year to date; quarter_amount is the quarter on its own.
@@ -29,6 +31,7 @@ with bank_values as (
         on b.exercise = v.exercise
        and b.lei_code = v.lei_code
     where not v.is_aggregate
+      and k.item_key in ('{{ var("items") | join("', '") }}')
 )
 
 select

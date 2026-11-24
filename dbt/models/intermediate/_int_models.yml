@@ -17,7 +17,7 @@ models:
   - name: int_eba__bank_values
     description: >
       EBA values for real banks (the "Other banks" aggregate is dropped), with items matched
-      across exercises. For P&L rows, quarter_amount is the quarter's own amount; it is NULL
+      across exercises. Only the items listed in the `items` var are kept. For P&L rows, quarter_amount is the quarter's own amount; it is NULL
       when the bank did not report the previous quarter of the same financial year.
     data_tests:
       - unique:

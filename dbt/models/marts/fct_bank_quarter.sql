@@ -1,6 +1,8 @@
 -- One row per bank and quarter with the figures the analysis uses, in EUR million.
 -- Flows (interest, income, profit) cover the quarter alone; balances are at quarter end.
-with bank_values as (
+-- not materialized: each use reads the table with its statistics (see the analyze in
+-- int_eba__bank_values), so Postgres picks a 1 s plan instead of a 20 s one
+with bank_values as not materialized (
     select * from {{ ref('int_eba__bank_values') }}
 ),
 

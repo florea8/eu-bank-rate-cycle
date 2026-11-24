@@ -24,3 +24,15 @@ vars:
   # First quarter with a quarter-only P&L for most banks: September 2020 is only
   # reported year to date, with no earlier quarter to subtract.
   panel_start: "2020-12-31"
+  # The EBA items fct_bank_quarter uses (2025 codes). int_eba__bank_values keeps only
+  # these, a tenth of the 174 items in tr_oth.csv.
+  items:
+    - "2520140"  # CET1 ratio
+    - "2520301"  # interest income
+    - "2520304"  # interest expenses
+    - "2520305"  # interest expenses on deposits
+    - "2520316"  # total operating income
+    - "2520332"  # profit before tax
+    - "2521010"  # total assets
+    - "2521215"  # deposits, by counterparty sector
+    - "2521216"  # total equity
