@@ -18,7 +18,7 @@ REPORTS_DIR = REPO_ROOT / "reports"
 
 PANEL_QUERY = """
 SELECT lei_code, bank_name, country, period_end, net_interest_margin, dfr_avg, total_assets,
-       overnight_deposit_share
+       overnight_deposit_share, deposit_interest_expense, deposits
 FROM marts.fct_bank_quarter
 WHERE in_balanced_panel AND net_interest_margin IS NOT NULL
 ORDER BY lei_code, period_end
@@ -28,7 +28,8 @@ ORDER BY lei_code, period_end
 def load_panel(conn: psycopg.Connection) -> pd.DataFrame:
     cur = conn.execute(PANEL_QUERY)
     panel = pd.DataFrame(cur.fetchall(), columns=[d.name for d in cur.description])
-    numeric = ["net_interest_margin", "dfr_avg", "total_assets", "overnight_deposit_share"]
+    numeric = ["net_interest_margin", "dfr_avg", "total_assets", "overnight_deposit_share",
+               "deposit_interest_expense", "deposits"]
     panel[numeric] = panel[numeric].astype(float)
     panel["period_end"] = pd.to_datetime(panel["period_end"])
     return panel
@@ -53,10 +54,13 @@ def rate_phases(rates: pd.Series) -> pd.DataFrame:
 
 
 def add_phases(panel: pd.DataFrame) -> pd.DataFrame:
-    """Panel with rate_up, rate_down and the margin in percent (nim_pct)."""
+    """Panel with rate_up, rate_down, the margin (nim_pct) and the annualised cost of
+    deposits (deposit_cost_pct), both in percent."""
     rates = panel.groupby("period_end")["dfr_avg"].first()
     out = panel.join(rate_phases(rates), on="period_end")
     out["nim_pct"] = 100 * out["net_interest_margin"]
+    deposits = out["deposits"].where(out["deposits"] > 0)
+    out["deposit_cost_pct"] = 400 * out["deposit_interest_expense"] / deposits
     return out
 
 
@@ -67,11 +71,16 @@ def bank_sensitivities(panel: pd.DataFrame) -> pd.DataFrame:
     point of rate cuts (rate_down is negative, so a positive beta_down means the margin
     fell with the cuts). nii_change_per_100bp_cut is the yearly net interest income a
     further 1-point cut would cost at the latest balance sheet, in EUR million.
+    deposit_beta is the share of the rate rise the bank passed on to its depositors, from
+    deposit_cost_pct ~ rate_up + rate_down.
     """
     rows = []
     for lei_code, bank in panel.groupby("lei_code"):
         fit = smf.ols("nim_pct ~ rate_up + rate_down", data=bank).fit()
         latest = bank.sort_values("period_end").iloc[-1]
+        deposits = None
+        if bank["deposit_cost_pct"].notna().sum() > 3:
+            deposits = smf.ols("deposit_cost_pct ~ rate_up + rate_down", data=bank).fit()
         rows.append(
             {
                 "lei_code": lei_code,
@@ -85,6 +94,7 @@ def bank_sensitivities(panel: pd.DataFrame) -> pd.DataFrame:
                 "r_squared": fit.rsquared,
                 "total_assets": latest["total_assets"],
                 "overnight_deposit_share": latest["overnight_deposit_share"],
+                "deposit_beta": deposits.params["rate_up"] if deposits else float("nan"),
                 "nii_change_per_100bp_cut": -fit.params["rate_down"] / 100 * latest["total_assets"],
             }
         )
