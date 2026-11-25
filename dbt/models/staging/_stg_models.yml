@@ -1,5 +1,7 @@
 version: 2
 
+# The EBA models are unique by the primary keys of their raw tables (db/init.sql),
+# so they have no unique tests of their own.
 models:
   - name: stg_ecb__observations
     description: ECB observations with a real date. One row per series and calendar day.
@@ -17,12 +19,6 @@ models:
       EBA bank values with the period as a quarter-end date. P&L amounts are year to date,
       over n_quarters quarters of the bank's financial year. is_aggregate marks the
       "Other banks" total, which is not a bank.
-    data_tests:
-      - unique:
-          arguments:
-            column_name: >
-              exercise || '|' || lei_code || '|' || period_end || '|' || item || '|' ||
-              assets_fv || '|' || assets_stages || '|' || exposure || '|' || financial_instruments
     columns:
       - name: period_end
         data_tests:
@@ -36,14 +32,6 @@ models:
 
   - name: stg_eba__items
     description: EBA item dictionary, with each item's code in the exercise before.
-    data_tests:
-      - unique:
-          arguments:
-            column_name: "exercise || '|' || csv_file || '|' || template || '|' || item"
 
   - name: stg_eba__institutions
     description: Banks in each exercise.
-    data_tests:
-      - unique:
-          arguments:
-            column_name: "exercise || '|' || lei_code"
