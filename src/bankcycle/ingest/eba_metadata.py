@@ -1,4 +1,4 @@
-"""Parse the EBA dictionary: item codes (SDD.xlsx), banks and dimension codes (TR_Metadata.xlsx)."""
+"""Parse the EBA dictionary: item codes (SDD.xlsx) and banks (TR_Metadata.xlsx)."""
 import re
 from contextlib import closing
 from pathlib import Path
@@ -28,9 +28,6 @@ INSTITUTION_COLUMNS = {
 INSTITUTION_SHEETS = ("List of Institutions", "Banks list")  # the second is the 2021 name
 INSTITUTION_OPTIONAL = {"Footnotes"}  # only from the 2025 exercise
 PREVIOUS_EXERCISE = re.compile(r"^(TE|TR|LEI_Code)_\w+$")
-
-# The breakdowns used in tr_oth.csv. The other sheets describe files we don't load.
-DIMENSION_SHEETS = ("ASSETS_FV", "ASSETS_Stages", "Exposure", "Financial_instruments", "Fin_end_year")
 
 
 def _open(path: Path):
@@ -122,13 +119,3 @@ def parse_institutions(path: Path) -> list[dict]:
         }
         for r in records
     ]
-
-
-def parse_dimension_codes(path: Path) -> list[dict]:
-    codes = []
-    with _open(path) as wb:
-        for sheet in DIMENSION_SHEETS:
-            header, records = _read(wb[sheet], key=sheet)
-            _check_header(f"{path} [{sheet}]", header, {sheet, "Label"})
-            codes += [{"dimension": sheet, "code": r[sheet], "label": r["Label"]} for r in records]
-    return codes

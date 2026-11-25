@@ -66,13 +66,3 @@ CREATE TABLE IF NOT EXISTS raw.eba_institutions (
     loaded_at          timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (exercise, lei_code)
 );
-
-CREATE TABLE IF NOT EXISTS raw.eba_dimension_codes (
-    exercise      integer NOT NULL,
-    dimension     text NOT NULL,
-    code          text NOT NULL,
-    label         text,
-    source_sha256 text NOT NULL,
-    loaded_at     timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (exercise, dimension, code)
-);

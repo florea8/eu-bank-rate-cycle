@@ -42,15 +42,8 @@ models:
             column_name: "exercise || '|' || csv_file || '|' || template || '|' || item"
 
   - name: stg_eba__institutions
-    description: Banks in each exercise, with the LEI each had in the exercise before.
+    description: Banks in each exercise.
     data_tests:
       - unique:
           arguments:
             column_name: "exercise || '|' || lei_code"
-
-  - name: stg_eba__dimension_codes
-    description: Labels for the breakdown codes used in tr_oth.csv.
-    data_tests:
-      - unique:
-          arguments:
-            column_name: "exercise || '|' || dimension || '|' || code"

@@ -27,6 +27,8 @@ totals as (
 ),
 
 -- Deposits are only reported by counterparty sector, so the total is their sum.
+-- Breakdown codes: financial_instruments 30 = deposits, 31 = overnight deposits;
+-- exposure 401 = households.
 deposits as (
     select
         lei_code,

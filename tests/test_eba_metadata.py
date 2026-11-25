@@ -30,11 +30,6 @@ def _metadata(path, institutions=(), header=INSTITUTION_HEADER):
     ws.append(header)
     for row in institutions:
         ws.append(row)
-    for sheet in eba_metadata.DIMENSION_SHEETS:
-        ws = wb.create_sheet(sheet)
-        ws.append([sheet, "Label"])
-        ws.append([0, "Total / No breakdown"])
-        ws.append([None, None])
     wb.save(path)
     return path
 
@@ -124,31 +119,6 @@ def test_parse_institutions_2021_sheet_name(tmp_path):
     (bank,) = eba_metadata.parse_institutions(path)
 
     assert bank["name"] == "Bank One"
-
-
-def test_parse_dimension_codes(tmp_path):
-    path = _metadata(tmp_path / "TR_Metadata.xlsx")
-
-    codes = eba_metadata.parse_dimension_codes(path)
-
-    assert {c["dimension"] for c in codes} == set(eba_metadata.DIMENSION_SHEETS)
-    assert codes[0] == {"dimension": "ASSETS_FV", "code": "0", "label": "Total / No breakdown"}
-
-
-def test_parse_dimension_codes_finds_offset_header(tmp_path):
-    path = _metadata(tmp_path / "TR_Metadata.xlsx")
-    wb = openpyxl.load_workbook(path)
-    del wb["Exposure"]
-    ws = wb.create_sheet("Exposure")
-    ws.append([None, None, None])
-    ws.append([None, None, "Exposure", "Label"])
-    ws.append([None, None, None, None])
-    ws.append([None, None, 101, "Central banks"])
-    wb.save(path)
-
-    codes = eba_metadata.parse_dimension_codes(path)
-
-    assert {"dimension": "Exposure", "code": "101", "label": "Central banks"} in codes
 
 
 def test_parse_institutions_rejects_changed_header(tmp_path):

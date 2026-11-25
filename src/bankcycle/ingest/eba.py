@@ -112,10 +112,7 @@ def parse_tr_oth(path: Path) -> list[dict]:
 LOADERS = {
     "tr_oth.csv": {"eba_tr_oth": parse_tr_oth},
     "SDD.xlsx": {"eba_items": eba_metadata.parse_items},
-    "TR_Metadata.xlsx": {
-        "eba_institutions": eba_metadata.parse_institutions,
-        "eba_dimension_codes": eba_metadata.parse_dimension_codes,
-    },
+    "TR_Metadata.xlsx": {"eba_institutions": eba_metadata.parse_institutions},
 }
 
 

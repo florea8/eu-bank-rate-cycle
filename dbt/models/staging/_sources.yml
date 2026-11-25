@@ -32,6 +32,3 @@ sources:
 
       - name: eba_institutions
         description: Banks in each exercise, from the "List of Institutions" sheet of TR_Metadata.xlsx.
-
-      - name: eba_dimension_codes
-        description: Labels for the breakdown codes used in tr_oth.csv, from TR_Metadata.xlsx.
